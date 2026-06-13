@@ -43,10 +43,18 @@ jobs:
 
     - name: Prepare environment and apply config
       run: |
-        cd padavan-ng/trunk
-        fakeroot ./build_firmware_modify "$CONFIG_FIRMWARE_PRODUCT_ID"
-        cp -f ../../build.config .config
-        make oldconfig
+        # Tim kiem va chay script cau hinh tu dong
+        BUILD_SCRIPT=$(find . -name "build_firmware_modify" | head -n 1)
+        if [ -z "$BUILD_SCRIPT" ]; then
+          echo "Error: build_firmware_modify not found!"
+          exit 1
+        fi
+        chmod +x "$BUILD_SCRIPT"
+        fakeroot "$BUILD_SCRIPT" "$CONFIG_FIRMWARE_PRODUCT_ID"
+        
+        # Ap dung cau hinh ca nhan
+        cp -f build.config padavan-ng/trunk/.config
+        cd padavan-ng/trunk && make oldconfig
 
     - name: Build firmware
       run: |
