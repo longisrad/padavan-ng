@@ -7,39 +7,33 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Build Docker Image
-      run: docker build -t padavan-builder .
+      - name: Install Build Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y autoconf automake autopoint cmake bison build-essential flex gawk gettext git gperf libtool libtool-bin pkg-config fakeroot kmod cpio doxygen texinfo help2man libncurses5-dev zlib1g-dev libsqlite3-dev gcc-multilib curl dos2unix unzip wget locales xxd libltdl-dev libgmp3-dev libmpfr-dev libarchive-tools libblkid-dev zstd mc
 
-    - name: Build Firmware inside Docker
-      run: |
-        docker run --rm -v ${{ github.workspace }}:/workdir padavan-builder /bin/bash -c "
-          # 1. Tự tìm thư mục trunk
-          TRUNK_DIR=$(find /workdir -maxdepth 2 -name 'trunk' | head -n 1)
+      - name: Build Firmware
+        run: |
+          # 1. Tìm thư mục trunk
+          TRUNK_DIR=$(find . -name 'trunk' -type d | head -n 1)
+          cd "$TRUNK_DIR"
           
-          if [ -z '$TRUNK_DIR' ]; then
-            echo 'Không tìm thấy thư mục trunk!'
-            exit 1
-          fi
+          # 2. Copy file config của bạn vào đúng vị trí .config
+          cp ../build.config .config
+          echo "CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME=y" >> .config
           
-          echo 'Đã tìm thấy trunk tại: $TRUNK_DIR'
-          cd '$TRUNK_DIR'
-          
-          # 2. Copy config
-          cp /workdir/build.config .config
-          
-          # 3. Build firmware
+          # 3. Build firmware (Tác giả thường build thủ công, bước này chạy script)
           chmod +x clear_tree.sh build_firmware.sh
           ./clear_tree.sh
           ./build_firmware.sh
-        "
 
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: Newifi-D2-Firmware
-        path: |
-          **/images/*.trx
-          **/images/*.bin
-          
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Newifi-D2-Firmware
+          path: |
+            **/images/*.trx
+            **/images/*.bin
+            
