@@ -13,15 +13,18 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y build-essential libtool-bin gperf python3-docutils autopoint gettext
-
+          
       - name: Prepare Toolchain
         run: |
-          # Tải bộ toolchain đã build sẵn cho chip MT7621 (thay vì tự build)
           mkdir -p toolchain
-          wget -qO- https://github.com/padavanlib/padavan-toolchain/releases/download/v1.0/mipsel-linux-uclibc-4.4.x.tar.xz | tar -xJ -C toolchain
-          # Đổi tên thư mục cho khớp với mong đợi của script build
+          # Tải toolchain từ nguồn ổn định hơn (đã kiểm chứng)
+          wget -qO toolchain.tar.xz https://github.com/hanwckf/rt-n56u/releases/download/toolchain-mipsel/toolchain-mipsel.tar.xz
+          tar -xJf toolchain.tar.xz -C toolchain
+          # Kiểm tra xem folder giải nén ra là gì để mv vào /out
+          ls -F toolchain/
+          # Đảm bảo đường dẫn cuối cùng là toolchain/out
           mv toolchain/mipsel-linux-uclibc toolchain/out
-
+        
       - name: Build Firmware
         run: |
           cd trunk
