@@ -5,38 +5,32 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04 # Dùng bản ổn định hơn 24.04 cho dự án cũ
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential libtool-bin gperf python3-docutils autopoint gettext bison flex texinfo autoconf automake libgmp-dev libmpfr-dev libmpc-dev
+          sudo apt install -y build-essential libtool-bin gperf python3-docutils autopoint gettext bison flex texinfo autoconf automake libgmp-dev libmpfr-dev libmpc-dev zlib1g-dev libncurses5-dev
 
-      - name: Prepare Toolchain
+      - name: Download & Prepare Toolchain
         run: |
-          # Xóa sạch thư mục cũ nếu có để tránh xung đột
-          rm -rf toolchain
           mkdir -p toolchain
-          
-          # Tải toolchain từ nguồn ổn định nhất (đã test cho MT7621)
+          # Tải bộ toolchain đã build sẵn cho chip MT7621 (thay vì tự build từ source)
           wget -qO toolchain.tar.xz https://github.com/hanwckf/rt-n56u/releases/download/toolchain-mipsel/toolchain-mipsel.tar.xz
           tar -xJf toolchain.tar.xz -C toolchain
-          
-          # Tìm thư mục thực tế được giải nén và đổi tên thành 'out'
-          # Dùng lệnh này để tránh lỗi "No such file"
-          find toolchain/ -maxdepth 1 -type d ! -path 'toolchain/' | xargs -I {} mv {} toolchain/out
-          ls -F toolchain/out # Kiểm tra xem đã có bin/gcc chưa
+          # Đảm bảo tên thư mục là 'out' để script build của Padavan nhận diện được
+          DIR_NAME=$(ls -d toolchain/*/ | head -n 1)
+          mv "$DIR_NAME" toolchain/out
 
       - name: Build Firmware
         run: |
-          cd trunk
-          # Xóa cấu hình cũ để build sạch
-          [ -f .config ] && rm .config
-          cp ../build.config .config
+          # Copy file config của bạn
+          cp build.config trunk/.config
           
-          # Bắt buộc build sạch
+          # Thực hiện build
+          cd trunk
           ./clear_tree.sh
           ./build_firmware.sh
 
