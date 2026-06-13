@@ -1,6 +1,6 @@
 #!/bin/bash
 # Copy file config của bạn vào trunk/.config
-cp NEWIFI-D2.config padavan-ng/trunk/.config
+cp build.config padavan-ng/trunk/.config
 
 # Nếu bạn muốn chắc chắn các thiết lập được nạp, hãy chạy lệnh này:
 cd padavan-ng/trunk
