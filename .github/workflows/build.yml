@@ -9,7 +9,7 @@ jobs:
     container: registry.gitlab.com/hadzhioglu/padavan-ng
     defaults: { run: { shell: bash } }
     steps:
-    # 1. Kéo mã nguồn nilabsent mới nhất về máy chủ ảo
+    # 1. Kéo mã nguồn từ kho fork của bạn về máy chủ ảo
     - uses: actions/checkout@v4
       with:
         path: padavan-ng
@@ -19,26 +19,24 @@ jobs:
       run: |
         wget -qO- "https://github.com/hadzhioglu/padavan-ng/releases/download/toolchain/toolchain-mipsel.tar.zst" | tar -C padavan-ng --zstd -xf -
 
-    # 3. Kéo bộ giao diện (Themes) chất lượng cao về cài đặt
+    # 3. Kéo bộ giao diện (Themes) phẳng chất lượng cao về
     - name: Install modern themes
       run: |
         git clone --depth 1 -b master https://github.com/hadzhioglu/padavan-themes themes
-        # Ghi đè cấu hình giao diện mặc định sang giao diện phẳng mới
         cp -r themes/common-theme themes/jquery.js padavan-ng/trunk/user/www/n56u_ribbon_fixed
         
-        # Cài đặt thêm các gói giao diện phổ biến (tối, sáng, màu sắc tùy biến)
         for theme in dark light; do
           echo "Installing $theme theme"
           cp -r "themes/$theme-theme" padavan-ng/trunk/user/www/n56u_ribbon_fixed
         done
 
-    # 4. Cấu hình file build và Biên dịch
+    # 4. Cấu hình file build từ trang chủ và Biên dịch
     - name: Build firmware
       run: |
-        # Lấy file config mẫu chuẩn của Newifi D2 từ kho nilabsent
-        cp padavan-ng/trunk/configs/templates/newifi-d2.config padavan-ng/trunk/.config
+        # CHUẨN ĐƯỜNG DẪN: Lấy file build.config bạn vừa tạo ở ngoài đưa vào vị trí biên dịch
+        cp padavan-ng/build.config padavan-ng/trunk/.config
         
-        # Tự động bật AdGuard Home vào file cấu hình
+        # Tự động chèn thêm AdGuard Home vào file cấu hình trước khi nấu
         echo "CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME=y" >> padavan-ng/trunk/.config
         
         cd padavan-ng/trunk
@@ -56,12 +54,11 @@ jobs:
         cp "padavan-ng/trunk/images/$FW_FILE_NAME" .
         echo "BUILD_TIMESTAMP=$(date '+%Y.%m.%d_%H.%M.%S')" >> $GITHUB_ENV
 
-    # 6. Đẩy file lên mục Artifacts (Cổ vật) trên GitHub để bạn tải
+    # 6. Đẩy file lên mục Artifacts trên GitHub
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: padavan-ng_Newifi_D2_With_Themes_${{ env.BUILD_TIMESTAMP }}
+        name: padavan-ng_Newifi_D2_Optimized_${{ env.BUILD_TIMESTAMP }}
         retention-days: 7
         path: |
           ${{ env.FW_FILE_NAME }}
-          
