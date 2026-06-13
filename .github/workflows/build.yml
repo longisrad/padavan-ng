@@ -5,44 +5,41 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04 # Dùng bản ổn định hơn 24.04 cho dự án cũ
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y build-essential libtool-bin gperf python3-docutils autopoint gettext
+          sudo apt install -y build-essential libtool-bin gperf python3-docutils autopoint gettext bison flex texinfo autoconf automake libgmp-dev libmpfr-dev libmpc-dev
 
       - name: Prepare Toolchain
         run: |
+          # Xóa sạch thư mục cũ nếu có để tránh xung đột
+          rm -rf toolchain
           mkdir -p toolchain
+          
+          # Tải toolchain từ nguồn ổn định nhất (đã test cho MT7621)
           wget -qO toolchain.tar.xz https://github.com/hanwckf/rt-n56u/releases/download/toolchain-mipsel/toolchain-mipsel.tar.xz
           tar -xJf toolchain.tar.xz -C toolchain
           
-          # TỰ ĐỘNG TÌM THƯ MỤC CHỨA TOOLCHAIN và đổi tên thành 'out'
-          # Tìm thư mục đầu tiên không phải là file trong toolchain/
-          DIR_NAME=$(ls -d toolchain/*/ | head -n 1)
-          mv "$DIR_NAME" toolchain/out
-          echo "Toolchain đã được đặt tại: toolchain/out"
+          # Tìm thư mục thực tế được giải nén và đổi tên thành 'out'
+          # Dùng lệnh này để tránh lỗi "No such file"
+          find toolchain/ -maxdepth 1 -type d ! -path 'toolchain/' | xargs -I {} mv {} toolchain/out
+          ls -F toolchain/out # Kiểm tra xem đã có bin/gcc chưa
 
       - name: Build Firmware
         run: |
           cd trunk
-          # Nạp file config của bạn
+          # Xóa cấu hình cũ để build sạch
+          [ -f .config ] && rm .config
           cp ../build.config .config
           
-          # Build
-          chmod +x clear_tree.sh build_firmware.sh
+          # Bắt buộc build sạch
           ./clear_tree.sh
           ./build_firmware.sh
 
-      - name: Upload firmware
-        uses: actions/upload-artifact@v4
-        with:
-          name: Newifi-D2-Firmware
-          path: trunk/images/*.trx
-          
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
