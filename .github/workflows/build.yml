@@ -12,35 +12,29 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
     steps:
-    # 1. Kéo mã nguồn nilabsent về
     - uses: actions/checkout@v4
       with:
         path: padavan-ng
 
-    # 2. Tự biên dịch bộ Toolchain gốc
-    - name: Build Toolchain
-      run: |
-        # Tìm xem thư mục toolchain nằm ở đâu và nhảy vào đó
-        TOOLCHAIN_DIR=$(find . -type d -name "toolchain" | head -n 1)
-        cd "$TOOLCHAIN_DIR"
-        ./build_toolchain
-        
-    # 3. Cài đặt Themes (Giữ nguyên logic của bạn)
+    # BỎ BƯỚC BUILD TOOLCHAIN VÌ ĐÃ CÓ TRONG CONTAINER
+    
     - name: Install themes
       run: |
         git clone --depth 1 -b master https://github.com/hadzhioglu/padavan-themes themes
+        # Trỏ đúng đường dẫn themes vào thư mục trunk của nilabsent
         cp -r themes/common-theme themes/jquery.js padavan-ng/trunk/user/www/n56u_ribbon_fixed
         cp -r themes/dark-theme padavan-ng/trunk/user/www/n56u_ribbon_fixed
         cp -r themes/light-theme padavan-ng/trunk/user/www/n56u_ribbon_fixed
 
-    # 4. Build Firmware (Nạp file build.config của bạn)
     - name: Build firmware
       run: |
-        # Lấy file build.config của bạn
+        # Nạp config
         cp padavan-ng/build.config padavan-ng/trunk/.config
         echo "CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME=y" >> padavan-ng/trunk/.config
         
         cd padavan-ng/trunk
+        # Cấp quyền thực thi cho script
+        chmod +x clear_tree.sh build_firmware.sh
         ./clear_tree.sh
         ./build_firmware.sh
 
@@ -49,7 +43,6 @@ jobs:
                         -printf "%T@\t%f\n" | sort -V | tail -1 | cut -f2)"
         echo "FW_FILE_NAME=$FW_FILE_NAME" >> $GITHUB_ENV
 
-    # 5. Lưu Artifacts
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
