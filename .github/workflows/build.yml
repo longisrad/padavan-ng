@@ -5,38 +5,54 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    container: registry.gitlab.com/hadzhioglu/padavan-ng
+    defaults: { run: { shell: bash } }
+    env:
+      PADAVAN_REPO: "https://gitlab.com/hadzhioglu/padavan-ng.git"
+      PADAVAN_BRANCH: "master"
+      PADAVAN_COMMIT: "HEAD"
+      PADAVAN_TOOLCHAIN_URL: "https://gitlab.com/api/v4/projects/hadzhioglu%2Fpadavan-ng/packages/generic/toolchain/latest/toolchain.tzst"
+      PADAVAN_THEMES_REPO: "https://gitlab.com/hadzhioglu/padavan-themes.git"
+      PADAVAN_THEMES_BRANCH: "main"
+      PADAVAN_THEMES: "blue white"
+
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y build-essential libtool-bin gperf python3-docutils autopoint gettext bison flex texinfo autoconf automake libgmp-dev libmpfr-dev libmpc-dev zlib1g-dev libncurses5-dev
+    - name: Download sources and toolchain
+      run: |
+        git config --global --add safe.directory '*'
+        git clone -b "$PADAVAN_BRANCH" "$PADAVAN_REPO" padavan-ng
+        git -C padavan-ng checkout "$PADAVAN_COMMIT"
+        wget -qO- "$PADAVAN_TOOLCHAIN_URL" | tar -C padavan-ng --zstd -xf -
 
-      - name: Download & Prepare Toolchain
-        run: |
-          mkdir -p toolchain
-          # Tải bộ toolchain đã build sẵn cho chip MT7621 (thay vì tự build từ source)
-          wget -qO toolchain.tar.xz https://github.com/hanwckf/rt-n56u/releases/download/toolchain-mipsel/toolchain-mipsel.tar.xz
-          tar -xJf toolchain.tar.xz -C toolchain
-          # Đảm bảo tên thư mục là 'out' để script build của Padavan nhận diện được
-          DIR_NAME=$(ls -d toolchain/*/ | head -n 1)
-          mv "$DIR_NAME" toolchain/out
+    - name: Install themes
+      run: |
+        git clone --depth 1 -b "$PADAVAN_THEMES_BRANCH" "$PADAVAN_THEMES_REPO" themes
+        for theme in $PADAVAN_THEMES; do
+          echo "Installing $theme theme"
+          cp -r "themes/$theme-theme" padavan-ng/trunk/user/www/n56u_ribbon_fixed/
+        done
 
-      - name: Build Firmware
-        run: |
-          # Copy file config của bạn
-          cp build.config trunk/.config
-          
-          # Thực hiện build
-          cd trunk
-          ./clear_tree.sh
-          ./build_firmware.sh
+    - name: Build firmware
+      run: |
+        # Copy file cấu hình build.config của bạn vào thư mục trunk
+        cp build.config padavan-ng/trunk/.config
+        cd padavan-ng/trunk
+        
+        # Build
+        ./clear_tree.sh
+        ./build_firmware.sh
 
-      - name: Upload firmware
-        uses: actions/upload-artifact@v4
-        with:
-          name: Newifi-D2-Firmware
-          path: trunk/images/*.trx
-          
+        # Tự động tìm file kết quả
+        FW_FILE_NAME="$(find images -type f -regextype posix-extended -iregex ".*\.(trx|bin)$" \
+                        -printf "%T@\t%f\n" | sort -V | tail -1 | cut -f2)"
+        [[ -n $FW_FILE_NAME ]] || { echo "Firmware file not found"; exit 1; }
+        echo "FW_FILE_NAME=$FW_FILE_NAME" >> $GITHUB_ENV
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Newifi-D2-Firmware
+        path: padavan-ng/trunk/images/${{ env.FW_FILE_NAME }}
