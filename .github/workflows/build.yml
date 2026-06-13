@@ -20,12 +20,23 @@ jobs:
     
     - name: Install themes
       run: |
+        # Kéo theme về
         git clone --depth 1 -b master https://github.com/hadzhioglu/padavan-themes themes
-        # Trỏ đúng đường dẫn themes vào thư mục trunk của nilabsent
-        cp -r themes/common-theme themes/jquery.js padavan-ng/trunk/user/www/n56u_ribbon_fixed
-        cp -r themes/dark-theme padavan-ng/trunk/user/www/n56u_ribbon_fixed
-        cp -r themes/light-theme padavan-ng/trunk/user/www/n56u_ribbon_fixed
-
+        
+        # Xác định đường dẫn gốc chứa theme trong container
+        THEME_DEST="padavan-ng/trunk/user/www/n56u_ribbon_fixed"
+        
+        # Tạo thư mục đích nếu nó chưa tồn tại để tránh lỗi "No such file or directory"
+        mkdir -p "$THEME_DEST"
+        
+        # Copy các thành phần theme
+        cp -r themes/common-theme "$THEME_DEST"
+        cp themes/jquery.js "$THEME_DEST"
+        
+        # Copy theme dark và light
+        [ -d "themes/dark-theme" ] && cp -r themes/dark-theme "$THEME_DEST"
+        [ -d "themes/light-theme" ] && cp -r themes/light-theme "$THEME_DEST"
+        
     - name: Build firmware
       run: |
         # Nạp config
