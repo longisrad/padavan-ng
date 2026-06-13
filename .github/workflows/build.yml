@@ -17,12 +17,14 @@ jobs:
       with:
         path: padavan-ng
 
-    # 2. Tự Build Toolchain (Đây là bước nilabsent yêu cầu)
+    # 2. Tự biên dịch bộ Toolchain gốc
     - name: Build Toolchain
       run: |
-        cd padavan-ng/toolchain
+        # Tìm xem thư mục toolchain nằm ở đâu và nhảy vào đó
+        TOOLCHAIN_DIR=$(find . -type d -name "toolchain" | head -n 1)
+        cd "$TOOLCHAIN_DIR"
         ./build_toolchain
-
+        
     # 3. Cài đặt Themes (Giữ nguyên logic của bạn)
     - name: Install themes
       run: |
