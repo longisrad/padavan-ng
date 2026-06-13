@@ -16,47 +16,30 @@ jobs:
       with:
         path: padavan-ng
 
-    # BỎ BƯỚC BUILD TOOLCHAIN VÌ ĐÃ CÓ TRONG CONTAINER
-    
-    - name: Install themes
-      run: |
-        # Kéo theme về
-        git clone --depth 1 -b master https://github.com/hadzhioglu/padavan-themes themes
-        
-        # Xác định đường dẫn gốc chứa theme trong container
-        THEME_DEST="padavan-ng/trunk/user/www/n56u_ribbon_fixed"
-        
-        # Tạo thư mục đích nếu nó chưa tồn tại để tránh lỗi "No such file or directory"
-        mkdir -p "$THEME_DEST"
-        
-        # Copy các thành phần theme
-        cp -r themes/common-theme "$THEME_DEST"
-        cp themes/jquery.js "$THEME_DEST"
-        
-        # Copy theme dark và light
-        [ -d "themes/dark-theme" ] && cp -r themes/dark-theme "$THEME_DEST"
-        [ -d "themes/light-theme" ] && cp -r themes/light-theme "$THEME_DEST"
-        
     - name: Build firmware
       run: |
-        # Nạp config
-        cp padavan-ng/build.config padavan-ng/trunk/.config
-        echo "CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME=y" >> padavan-ng/trunk/.config
+        # Di chuyển vào thư mục trunk (nếu tồn tại) hoặc thư mục gốc
+        [ -d "padavan-ng/trunk" ] && cd padavan-ng/trunk || cd padavan-ng
         
-        cd padavan-ng/trunk
-        # Cấp quyền thực thi cho script
+        # Nạp cấu hình từ file build.config ở thư mục gốc của repo
+        cp ../build.config .config
+        echo "CONFIG_FIRMWARE_INCLUDE_ADGUARDHOME=y" >> .config
+        
+        # Thực thi biên dịch
         chmod +x clear_tree.sh build_firmware.sh
         ./clear_tree.sh
         ./build_firmware.sh
 
-        # Tìm file .trx hoặc .bin
-        FW_FILE_NAME="$(find images -type f -regextype posix-extended -iregex ".*\.(trx|bin)$" \
-                        -printf "%T@\t%f\n" | sort -V | tail -1 | cut -f2)"
+        # Tìm file kết quả
+        FW_FILE_NAME="$(find images -type f -regextype posix-extended -iregex ".*\.(trx|bin)$" -printf "%T@\t%f\n" | sort -V | tail -1 | cut -f2)"
         echo "FW_FILE_NAME=$FW_FILE_NAME" >> $GITHUB_ENV
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: Newifi-D2-Firmware
-        path: padavan-ng/trunk/images/${{ env.FW_FILE_NAME }}
-        
+        # Đường dẫn này tự động điều chỉnh theo thư mục đã chọn ở trên
+        path: |
+          padavan-ng/trunk/images/${{ env.FW_FILE_NAME }}
+          padavan-ng/images/${{ env.FW_FILE_NAME }}
+          
