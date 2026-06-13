@@ -6,7 +6,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Chúng ta tự build image từ Dockerfile có sẵn trong repo của bạn
     steps:
     - uses: actions/checkout@v4
 
@@ -15,15 +14,23 @@ jobs:
 
     - name: Build Firmware inside Docker
       run: |
-        # Chạy container và mount thư mục hiện tại vào trong
         docker run --rm -v ${{ github.workspace }}:/workdir padavan-builder /bin/bash -c "
-          # Copy file config của bạn vào đúng chỗ
-          cp /workdir/build.config /workdir/padavan-ng/trunk/.config
+          # 1. Tự tìm thư mục trunk
+          TRUNK_DIR=$(find /workdir -maxdepth 2 -name 'trunk' | head -n 1)
           
-          # Di chuyển vào đúng thư mục mà Dockerfile đã clone sẵn
-          cd /workdir/padavan-ng/trunk
+          if [ -z '$TRUNK_DIR' ]; then
+            echo 'Không tìm thấy thư mục trunk!'
+            exit 1
+          fi
           
-          # Build
+          echo 'Đã tìm thấy trunk tại: $TRUNK_DIR'
+          cd '$TRUNK_DIR'
+          
+          # 2. Copy config
+          cp /workdir/build.config .config
+          
+          # 3. Build firmware
+          chmod +x clear_tree.sh build_firmware.sh
           ./clear_tree.sh
           ./build_firmware.sh
         "
@@ -32,5 +39,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: Newifi-D2-Firmware
-        path: padavan-ng/trunk/images/*.trx
-        
+        path: |
+          **/images/*.trx
+          **/images/*.bin
+          
