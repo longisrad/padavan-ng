@@ -13,28 +13,36 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y build-essential libtool-bin gperf python3-docutils autopoint gettext
-          
+
       - name: Prepare Toolchain
         run: |
           mkdir -p toolchain
-          # Tải toolchain từ nguồn ổn định hơn (đã kiểm chứng)
           wget -qO toolchain.tar.xz https://github.com/hanwckf/rt-n56u/releases/download/toolchain-mipsel/toolchain-mipsel.tar.xz
           tar -xJf toolchain.tar.xz -C toolchain
-          # Kiểm tra xem folder giải nén ra là gì để mv vào /out
-          ls -F toolchain/
-          # Đảm bảo đường dẫn cuối cùng là toolchain/out
-          mv toolchain/mipsel-linux-uclibc toolchain/out
-        
+          
+          # TỰ ĐỘNG TÌM THƯ MỤC CHỨA TOOLCHAIN và đổi tên thành 'out'
+          # Tìm thư mục đầu tiên không phải là file trong toolchain/
+          DIR_NAME=$(ls -d toolchain/*/ | head -n 1)
+          mv "$DIR_NAME" toolchain/out
+          echo "Toolchain đã được đặt tại: toolchain/out"
+
       - name: Build Firmware
         run: |
           cd trunk
           # Nạp file config của bạn
           cp ../build.config .config
           
-          # Thực hiện build
+          # Build
+          chmod +x clear_tree.sh build_firmware.sh
           ./clear_tree.sh
           ./build_firmware.sh
 
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: Newifi-D2-Firmware
+          path: trunk/images/*.trx
+          
       - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
