@@ -1,160 +1,118 @@
 #!/bin/sh
 
-#######################################################################
-# (1) run process from superuser root (less security)
-# (0) run process from unprivileged user "nobody" (more security)
-SVC_ROOT=1
+# Lấy các biến từ NVRAM
+agh_enabled=$(nvram_get agh_enabled)
+adguard_port=$(nvram_get adguard_port)
+adguard_replace_dns=$(nvram_get adguard_replace_dns)
 
-# process priority (0-normal, 19-lowest)
-SVC_PRIORITY=5
-#######################################################################
+STORAGE_DIR="/etc/storage/AdGuardHome"
+CONFIG_FILE="$STORAGE_DIR/AdGuardHome.yaml"
+RAM_DIR="/tmp/AdGuardHome"
+PID_FILE="/var/run/AdGuardHome.pid"
 
-SVC_NAME="AdGuardHome"
-SVC_PATH="/usr/bin/AdGuardHome"
-WORK_DIR="/tmp/agh"
-DIR_CONF="/etc/storage/AdGuardHome.yaml"
-LOG_FILE="syslog"
+# Tự động tìm thư mục cấu hình phụ của dnsmasq trên Padavan
+if [ -d "/tmp/dnsmasq.d" ]; then
+    DNSMASQ_CONF_DIR="/tmp/dnsmasq.d"
+else
+    DNSMASQ_CONF_DIR="/etc/storage/dnsmasq/dnsmasq.d"
+fi
+DNSMASQ_AGH_CONF="$DNSMASQ_CONF_DIR/adguardhome.conf"
 
-func_create_default_config()
-{
-	# Nếu file cấu hình chưa tồn tại, tạo mới
-	if [ ! -f "$DIR_CONF" ]; then
-		adg_port=`nvram get adguard_port`
-		[ -z "$adg_port" ] && adg_port=3000
-		
-		# Tự động tính toán cổng DNS dựa trên thiết lập NVRAM thay thế dnsmasq
-		replace_dnsmasq=`nvram get adguard_replace_dns`
-		if [ "$replace_dnsmasq" = "1" ]; then
-			dns_port=53
-		else
-			dns_port=5353
-		fi
+start_agh() {
+    # 1. Kiểm tra nếu chưa có thư mục lưu cấu hình trên Flash thì tạo mới
+    if [ ! -d "$STORAGE_DIR" ]; then
+        mkdir -p "$STORAGE_DIR"
+    fi
 
-		# Tạo template cơ bản bỏ qua bước setup wizard
-		cat <<EOF > "$DIR_CONF"
-bind_host: 0.0.0.0
-bind_port: $adg_port
-auth_name: root
-auth_pass: admin
-language: en
-dns:
-  bind_hosts:
-  - 0.0.0.0
-  port: $dns_port
-  bootstrap_dns:
-  - 9.9.9.10
-  upstream_dns:
-  - https://dns.quad9.net/dns-query
-querylog:
-  dir_path: $WORK_DIR
-  interval: 24h
-  size_memory: 1000
-EOF
-	fi
+    # 2. Nếu chưa có file cấu hình .yaml, copy file mẫu từ rom ra
+    if [ ! -f "$CONFIG_FILE" ]; then
+        if [ -f "/etc_ro/AdGuardHome.yaml" ]; then
+            cp /etc_ro/AdGuardHome.yaml "$CONFIG_FILE"
+        else
+            logger -t "AdGuardHome" "LỖI: Không tìm thấy file cấu hình mẫu tại /etc_ro/AdGuardHome.yaml!"
+        fi
+    fi
+
+    # 3. Tạo thư mục làm việc tạm thời trên RAM để chứa bộ lọc (Filters) Tránh hại Flash
+    if [ ! -d "$RAM_DIR" ]; then
+        mkdir -p "$RAM_DIR"
+    fi
+
+    # 4. Xử lý điều phối DNS nhường sân cho AdGuard Home chặn quảng cáo
+    if [ "$adguard_replace_dns" = "1" ]; then
+        logger -t "AdGuardHome" "Đang cấu hình dnsmasq chuyển tiếp truy vấn sang AdGuard Home (Port 5353)..."
+        
+        # Đảm bảo thư mục dnsmasq phụ tồn tại
+        mkdir -p "$DNSMASQ_CONF_DIR"
+        
+        # Tạo file cấu hình phụ bắt dnsmasq không lấy DNS nhà mạng và forward hết sang AGH
+        echo "no-resolv" > "$DNSMASQ_AGH_CONF"
+        echo "server=127.0.0.1#5353" >> "$DNSMASQ_AGH_CONF"
+        
+        # Khởi động lại dịch vụ DHCP/DNS của router để áp dụng
+        restart_dhcpd
+    fi
+
+    # 5. Khởi động tiến trình chạy ngầm
+    if [ -f "/usr/bin/AdGuardHome" ]; then
+        logger -t "AdGuardHome" "Đang khởi động AdGuard Home trên cổng WebUI $adguard_port..."
+        /usr/bin/AdGuardHome -c "$CONFIG_FILE" -w "$RAM_DIR" --no-check-update > /dev/null 2>&1 &
+        
+        # Đợi một chút để tiến trình sinh ra PID rồi ghi lại
+        sleep 1
+        pidof AdGuardHome > "$PID_FILE"
+    else
+        logger -t "AdGuardHome" "LỖI: Không tìm thấy file thực thi tại /usr/bin/AdGuardHome!"
+    fi
 }
 
-func_start()
-{
-	if [ -n "`pidof AdGuardHome`" ] ; then
-		return 0
-	fi
-
-	echo -n "Starting $SVC_NAME:."
-
-	# Tạo thư mục làm việc trên RAM
-	if [ ! -d "${WORK_DIR}" ] ; then
-		mkdir -p "${WORK_DIR}"
-	fi
-
-	# Tạo file cấu hình mặc định nếu chưa có
-	func_create_default_config
-
-	replace_dnsmasq=`nvram get adguard_replace_dns`
-	
-	# Sửa lỗi bọc ngoặc kép chuỗi ký tự tránh lỗi biến trống
-	if [ "$replace_dnsmasq" = "1" ] ; then
-		if grep -q "^#port=0$" /etc/storage/dnsmasq/dnsmasq.conf; then
-			sed -i '/port=0/s/^#//g' /etc/storage/dnsmasq/dnsmasq.conf
-		else
-			if grep -q "^port=0$" /etc/storage/dnsmasq/dnsmasq.conf; then
-				true
-			else
-				echo "port=0" >> /etc/storage/dnsmasq/dnsmasq.conf
-			fi
-		fi
-		killall dnsmasq
-	fi
-
-	if [ $SVC_ROOT -eq 0 ] ; then
-		chmod 777 "${WORK_DIR}"
-		svc_user=" -c nobody"
-	fi
-	adg_port=`nvram get adguard_port`
-	lan_ipaddr=`nvram get lan_ipaddr`
-
-	start-stop-daemon -S -b -N $SVC_PRIORITY$svc_user -x $SVC_PATH -- -w "$WORK_DIR" -c "$DIR_CONF" -l "$LOG_FILE" -h "$lan_ipaddr" -p "$adg_port"
-	
-	if [ $? -eq 0 ] ; then
-		echo "[  OK  ]"
-		logger -t "$SVC_NAME" "daemon is started"
-	else
-		echo "[FAILED]"
-	fi
-}
-
-func_stop()
-{
-	# Make sure not running
-	if [ -z "`pidof AdGuardHome`" ] ; then
-		return 0
-	fi
-	
-	echo -n "Stopping $SVC_NAME:."
-	
-	# stop daemon
-	killall -q AdGuardHome
-	
-	# gracefully wait max 25 seconds while AGH stop
-	i=0
-	while [ -n "`pidof AdGuardHome`" ] && [ $i -le 25 ] ; do
-		echo -n "."
-		i=$(( $i + 1 ))
-		sleep 1
-	done
-	
-	tr_pid=`pidof AdGuardHome`
-	if [ -n "$tr_pid" ] ; then
-		# force kill (hungup?)
-		kill -9 "$tr_pid"
-		sleep 1
-		echo "[KILLED]"
-		logger -t "$SVC_NAME" "Cannot stop: Timeout reached! Force killed."
-	else
-		echo "[  OK  ]"
-	fi
-
-	restart_dnsmasq=`nvram get adguard_replace_dns`
-	if [ "$restart_dnsmasq" = "1" ] ; then
-		if grep -q "^port=0$" /etc/storage/dnsmasq/dnsmasq.conf; then
-			sed -i '/port=0/s/^/#/g' /etc/storage/dnsmasq/dnsmasq.conf
-		fi
-		killall dnsmasq
-	fi
+stop_agh() {
+    logger -t "AdGuardHome" "Đang dừng AdGuard Home và khôi phục DNS mặc định..."
+    
+    # 1. Kill tiến trình bằng PID file hoặc tên ứng dụng
+    if [ -f "$PID_FILE" ]; then
+        PID=$(cat "$PID_FILE")
+        kill -9 $PID 2>/dev/null
+        rm -f "$PID_FILE"
+    else
+        killall -9 AdGuardHome 2>/dev/null
+    fi
+    
+    # 2. Xóa cấu hình điều hướng trong dnsmasq nếu có để khôi phục DNS gốc
+    if [ -f "$DNSMASQ_AGH_CONF" ]; then
+        rm -f "$DNSMASQ_AGH_CONF"
+        restart_dhcpd
+    fi
+    
+    # 3. Xóa thư mục tạm trên RAM cho sạch bộ nhớ
+    rm -rf "$RAM_DIR"
 }
 
 case "$1" in
-start)
-	func_start
-	;;
-stop)
-	func_stop
-	;;
-restart)
-	func_stop
-	func_start
-	;;
-*)
-	echo "Usage: $0 {start|stop|restart}"
-	exit 1
-	;;
+    start)
+        if [ "$agh_enabled" = "1" ]; then
+            # Kiểm tra xem AGH đã chạy chưa để tránh chạy trùng tiến trình
+            if [ -f "$PID_FILE" ] && kill -0 $(cat "$PID_FILE") 2>/dev/null; then
+                logger -t "AdGuardHome" "AdGuard Home đã đang chạy rồi."
+            else
+                start_agh
+            fi
+        fi
+        ;;
+    stop)
+        stop_agh
+        ;;
+    restart)
+        stop_agh
+        sleep 1
+        if [ "$agh_enabled" = "1" ]; then
+            start_agh
+        fi
+        ;;
+    *)
+        echo "Sử dụng: $0 {start|stop|restart}"
+        exit 1
+        ;;
 esac
+
+exit 0
