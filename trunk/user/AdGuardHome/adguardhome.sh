@@ -21,9 +21,16 @@ func_create_default_config()
 	if [ ! -f "$DIR_CONF" ]; then
 		adg_port=`nvram get adguard_port`
 		[ -z "$adg_port" ] && adg_port=3000
-		lan_ipaddr=`nvram get lan_ipaddr`
+		
+		# Tự động tính toán cổng DNS dựa trên thiết lập NVRAM thay thế dnsmasq
+		replace_dnsmasq=`nvram get adguard_replace_dns`
+		if [ "$replace_dnsmasq" = "1" ]; then
+			dns_port=53
+		else
+			dns_port=5353
+		fi
 
-		# Tạo template cơ bản bỏ qua bước setup
+		# Tạo template cơ bản bỏ qua bước setup wizard
 		cat <<EOF > "$DIR_CONF"
 bind_host: 0.0.0.0
 bind_port: $adg_port
@@ -33,7 +40,7 @@ language: en
 dns:
   bind_hosts:
   - 0.0.0.0
-  port: 5353
+  port: $dns_port
   bootstrap_dns:
   - 9.9.9.10
   upstream_dns:
@@ -64,7 +71,8 @@ func_start()
 
 	replace_dnsmasq=`nvram get adguard_replace_dns`
 	
-	if [ $replace_dnsmasq -eq 1 ] ; then
+	# Sửa lỗi bọc ngoặc kép chuỗi ký tự tránh lỗi biến trống
+	if [ "$replace_dnsmasq" = "1" ] ; then
 		if grep -q "^#port=0$" /etc/storage/dnsmasq/dnsmasq.conf; then
 			sed -i '/port=0/s/^#//g' /etc/storage/dnsmasq/dnsmasq.conf
 		else
@@ -126,7 +134,7 @@ func_stop()
 	fi
 
 	restart_dnsmasq=`nvram get adguard_replace_dns`
-	if [ $restart_dnsmasq -eq 1 ] ; then
+	if [ "$restart_dnsmasq" = "1" ] ; then
 		if grep -q "^port=0$" /etc/storage/dnsmasq/dnsmasq.conf; then
 			sed -i '/port=0/s/^/#/g' /etc/storage/dnsmasq/dnsmasq.conf
 		fi
