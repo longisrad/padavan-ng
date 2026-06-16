@@ -275,6 +275,7 @@ restart_zram(void)
 	start_zram();
 }
 #endif
+
 #if defined(APP_DOH)
 int is_doh_run(void)
 {
@@ -305,6 +306,7 @@ void restart_doh(void)
 	start_doh();
 }
 #endif
+
 #if defined(APP_STUBBY)
 int is_stubby_run(void)
 {
@@ -335,6 +337,7 @@ void restart_stubby(void)
 	start_stubby();
 }
 #endif
+
 #if defined(APP_ZAPRET)
 int is_zapret_run(void){
 	if (check_if_file_exist("/usr/bin/nfqws") || check_if_file_exist("/usr/bin/nfqws2"))
@@ -411,6 +414,7 @@ restart_tor(void)
 	start_tor();
 }
 #endif
+
 #if defined(APP_PRIVOXY)
 int
 is_privoxy_run(void)
@@ -443,6 +447,7 @@ restart_privoxy(void)
 	start_privoxy();
 }
 #endif
+
 #if defined(APP_DNSCRYPT)
 int
 is_dnscrypt_run(void)
@@ -480,6 +485,7 @@ restart_dnscrypt(void)
 int
 is_adguard_run(void)
 {
+	/* Kiểm tra chính xác tiến trình đang chạy ngầm trong RAM */
 	if (check_if_file_exist("/usr/bin/AdGuardHome"))
 	{
 		if (pids("AdGuardHome"))
@@ -497,7 +503,8 @@ stop_adguard(void)
 void 
 start_adguard(void)
 {
-	if (nvram_get_int("agh_enabled") == 1)
+	/* Chỉ chạy khi ở chế độ Router thông thường và biến NVRAM được kích hoạt */
+	if (!get_ap_mode() && nvram_get_int("agh_enabled") == 1)
 		eval("/usr/bin/adguardhome.sh", "start");
 }
 
@@ -505,6 +512,7 @@ void
 restart_adguard(void)
 {
 	stop_adguard();
+	sleep(1); /* Nghỉ 1 giây tạo khoảng trống để tiến trình giải phóng socket port hoàn toàn */
 	start_adguard();
 }
 #endif
@@ -734,7 +742,8 @@ start_services_once(int is_ap_mode)
 #if defined(APP_TOR)
 		start_tor();
 #endif
-#if defined(APP_ADGUARD) // <-- THÊM ĐOẠN NÀY
+#if defined(APP_ADGUARD)
+		/* Kích hoạt khởi động AdGuard Home cùng hệ thống */
 		start_adguard();
 #endif
 		if (!is_upnp_run())
@@ -796,7 +805,8 @@ stop_services(int stopall)
 #if defined(APP_ZAPRET)
 	stop_zapret();
 #endif
-#if defined(APP_ADGUARD) // <-- THÊM ĐOẠN NÀY
+#if defined(APP_ADGUARD)
+	/* Đảm bảo dừng an toàn AdGuard Home khi hạ tầng mạng thay đổi */
 	stop_adguard();
 #endif
 	stop_networkmap();
