@@ -165,6 +165,13 @@ ifeq (,$(filter y,$(CONFIG_FIRMWARE_INCLUDE_ZAPRET) \
 		$(CONFIG_FIRMWARE_INCLUDE_ZAPRET2)))
 	rm -f $(INSTALLDIR)/www/Advanced_Services_Zapret.asp
 endif
+ifneq ($(CONFIG_FIRMWARE_INCLUDE_AGH),y)
+	rm -f $(INSTALLDIR)/www/Advanced_AdGuardHome_Content.asp
+endif
+
+ifneq ($(CONFIG_FIRMWARE_SQM_UI),y)
+	rm -f $(INSTALLDIR)/www/Advanced_SQM_Content.asp
+endif
 
 clean:
 	@echo "Clean www romfs"
