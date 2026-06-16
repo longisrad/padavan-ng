@@ -28,19 +28,16 @@ $j(document).ready(function() {
     init_itoggle('adguard_replace_dns');
     change_agh_enabled();
 });
-
 </script>
 <script>
-
 <% login_state_hook(); %>
 
 function initial(){
     show_banner(1);
     show_menu(5,11,1);
     show_footer();
-	if (!login_safe())
-		textarea_scripts_enabled(0);
-
+    if (!login_safe())
+        textarea_scripts_enabled(0);
 }
 
 function applyRule(){
@@ -56,7 +53,7 @@ function applyRule(){
 }
 
 function validForm(){
-    var v = document.form.adguard_port.value
+    var v = document.form.adguard_port.value;
     if (v < 1024 || v > 65535) {
         alert("<#AdGuard_InvalidPort#>");
         return false;
@@ -66,21 +63,14 @@ function validForm(){
 
 function change_agh_enabled(){
     var v = document.form.agh_enabled.value;
-    showhide_div("adguard_replace_dns", v)
-    showhide_div("adguard_port", v);
-}
-
-function done_validating(action){
-    refreshpage();
+    showhide_div("agh_settings_block", v);
 }
 
 function button_AdGuardHome_wan_port(){
-		var port =  document.form.adguard_port.value;
-		var porturl ='http://' + window.location.hostname + ":" + port;
-		//alert(porturl);
-		window.open(porturl,'AdGuardHome_wan_port');
+    var port = document.form.adguard_port.value;
+    var porturl = 'http://' + window.location.hostname + ":" + port;
+    window.open(porturl, 'AdGuardHome_wan_port');
 }
-
 </script>
 </head>
 
@@ -113,8 +103,6 @@ function button_AdGuardHome_wan_port(){
     <div class="container-fluid">
         <div class="row-fluid">
             <div class="span3">
-                <!--Sidebar content-->
-                <!--=====Beginning of Main Menu=====-->
                 <div class="well sidebar-nav side_nav" style="padding: 0px;">
                     <ul id="mainMenu" class="clearfix"></ul>
                     <ul class="clearfix">
@@ -126,7 +114,6 @@ function button_AdGuardHome_wan_port(){
             </div>
 
             <div class="span9">
-                <!--Body content-->
                 <div class="row-fluid">
                     <div class="span12">
                         <div class="box well grad_colour_dark_blue">
@@ -134,16 +121,30 @@ function button_AdGuardHome_wan_port(){
                             <div class="round_bottom">
                                 <div class="row-fluid">
                                     <div id="tabMenu" class="submenuBlock"></div>
-                                    <div class="alert alert-info" style="margin: 10px;"> <#AdGuardHome_Desc#> <a href="https://adguard.com/en/adguard-home/overview.html" target="blank">AdGuard Home</a>
-                                    <span style="color:#FF0000;" class=""></span></div>
+                                    <div class="alert alert-info" style="margin: 10px;">
+                                        <#AdGuardHome_Desc#> <a href="https://adguard.com/en/adguard-home/overview.html" target="blank">AdGuard Home</a>
+                                    </div>
 
                                     <table width="100%" align="center" cellpadding="4" cellspacing="0" class="table">
                                         <tr>
                                             <th colspan="4" style="background-color: #E3E3E3;">Status</th>
                                         </tr>
-                                        <tr id="AdGuardHome_enable_tr" >
-                                            <th width="50%"><#AdGuardHome_Toggle#></th>
+                                        <tr>
+                                            <th width="50%"><#Server_Status#></th>
                                             <td>
+                                                <% eval("pidof AdGuardHome", "agh_pid"); %>
+                                                <span class="label <% nvram_match_x("", "agh_pid", "", "label-important"); %>" id="agh_status_label">
+                                                    <% nvram_match_x("", "agh_pid", "", "Stopped"); %>
+                                                    <% nvram_no_match_x("", "agh_pid", "", "Running"); %>
+                                                </span>
+                                            </td>
+                                            <td colspan="2" style="border-top: 0 none; text-align: right;">
+                                                <input class="btn btn-success" type="button" value="<#AdGuardHome_WebIf#>" onclick="button_AdGuardHome_wan_port()" tabindex="24">
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <th><#AdGuardHome_Toggle#></th>
+                                            <td colspan="3">
                                                 <div class="main_itoggle">
                                                     <div id="agh_enabled_on_of">
                                                         <input type="checkbox" id="agh_enabled_fake" <% nvram_match_x("", "agh_enabled", "1", "value=1 checked"); %><% nvram_match_x("", "agh_enabled", "0", "value=0"); %> >
@@ -154,29 +155,31 @@ function button_AdGuardHome_wan_port(){
                                                     <input type="radio" value="0" name="agh_enabled" id="agh_enabled_0" <% nvram_match_x("", "agh_enabled", "0", "checked"); %>><#checkbox_No#>
                                                 </div>
                                             </td>
-                                            <td colspan="2" style="border-top: 0 none;">
-												<input class="btn btn-success" style="" type="button" value="<#AdGuardHome_WebIf#>" onclick="button_AdGuardHome_wan_port()" tabindex="24">
-											</td>
                                         </tr>
-                                        <tr id="adguard_replace_dns">
-                                            <th><#AdGuardHome_DisableDNSMasq#></th>
-                                            <td>
-                                                <div class="main_itoggle">
-                                                    <div id="adguard_replace_dns_on_of">
-                                                        <input type="checkbox" id="adguard_replace_dns_fake" <% nvram_match_x("", "adguard_replace_dns", "1", "value=1 checked"); %><% nvram_match_x("", "adguard_replace_dns", "0", "value=0"); %> >
+                                        
+                                        <tbody id="agh_settings_block">
+                                            <tr>
+                                                <th><#AdGuardHome_DisableDNSMasq#></th>
+                                                <td colspan="3">
+                                                    <div class="main_itoggle">
+                                                        <div id="adguard_replace_dns_on_of">
+                                                            <input type="checkbox" id="adguard_replace_dns_fake" <% nvram_match_x("", "adguard_replace_dns", "1", "value=1 checked"); %><% nvram_match_x("", "adguard_replace_dns", "0", "value=0"); %> >
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <div style="position: absolute; margin-left: -10000px;">
-                                                    <input type="radio" value="1" name="adguard_replace_dns" id="adguard_replace_dns_1" <% nvram_match_x("", "adguard_replace_dns", "1", "checked"); %>><#checkbox_Yes#>
-                                                    <input type="radio" value="0" name="adguard_replace_dns" id="adguard_replace_dns_0" <% nvram_match_x("", "adguard_replace_dns", "0", "checked"); %>><#checkbox_No#>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        <tr id="adguard_port"> <th><#AdGuardHome_Port#></th>
-                                            <td>
-                                                <input type="text" maxlength="64" class="input" size="64" name="adguard_port" value="<% nvram_get_x("","adguard_port"); %>" />
-                                            </td>
-                                        </tr>
+                                                    <div style="position: absolute; margin-left: -10000px;">
+                                                        <input type="radio" value="1" name="adguard_replace_dns" id="adguard_replace_dns_1" <% nvram_match_x("", "adguard_replace_dns", "1", "checked"); %>><#checkbox_Yes#>
+                                                        <input type="radio" value="0" name="adguard_replace_dns" id="adguard_replace_dns_0" <% nvram_match_x("", "adguard_replace_dns", "0", "checked"); %>><#checkbox_No#>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <th><#AdGuardHome_Port#></th>
+                                                <td colspan="3">
+                                                    <input type="text" maxlength="5" class="input" size="10" name="adguard_port" value="<% nvram_get_x("","adguard_port"); %>" style="width: 80px;" />
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                        
                                         <tr>
                                             <td colspan="4" style="border-top: 0 none;">
                                                 <br />
@@ -198,4 +201,3 @@ function button_AdGuardHome_wan_port(){
 </div>
 </body>
 </html>
-
