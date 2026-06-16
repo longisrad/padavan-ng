@@ -15,6 +15,37 @@ WORK_DIR="/tmp/agh"
 DIR_CONF="/etc/storage/AdGuardHome.yaml"
 LOG_FILE="syslog"
 
+func_create_default_config()
+{
+	# Nếu file cấu hình chưa tồn tại, tạo mới
+	if [ ! -f "$DIR_CONF" ]; then
+		adg_port=`nvram get adguard_port`
+		[ -z "$adg_port" ] && adg_port=3000
+		lan_ipaddr=`nvram get lan_ipaddr`
+
+		# Tạo template cơ bản bỏ qua bước setup
+		cat <<EOF > "$DIR_CONF"
+bind_host: 0.0.0.0
+bind_port: $adg_port
+auth_name: root
+auth_pass: admin
+language: en
+dns:
+  bind_hosts:
+  - 0.0.0.0
+  port: 5353
+  bootstrap_dns:
+  - 9.9.9.10
+  upstream_dns:
+  - https://dns.quad9.net/dns-query
+querylog:
+  dir_path: $WORK_DIR
+  interval: 24h
+  size_memory: 1000
+EOF
+	fi
+}
+
 func_start()
 {
 	if [ -n "`pidof AdGuardHome`" ] ; then
@@ -22,7 +53,15 @@ func_start()
 	fi
 
 	echo -n "Starting $SVC_NAME:."
-	
+
+	# Tạo thư mục làm việc trên RAM
+	if [ ! -d "${WORK_DIR}" ] ; then
+		mkdir -p "${WORK_DIR}"
+	fi
+
+	# Tạo file cấu hình mặc định nếu chưa có
+	func_create_default_config
+
 	replace_dnsmasq=`nvram get adguard_replace_dns`
 	
 	if [ $replace_dnsmasq -eq 1 ] ; then
@@ -36,10 +75,6 @@ func_start()
 			fi
 		fi
 		killall dnsmasq
-	fi
-
-	if [ ! -d "${WORK_DIR}" ] ; then
-		mkdir -p "${WORK_DIR}"
 	fi
 
 	if [ $SVC_ROOT -eq 0 ] ; then
