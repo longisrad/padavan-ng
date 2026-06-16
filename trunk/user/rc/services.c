@@ -734,6 +734,9 @@ start_services_once(int is_ap_mode)
 #if defined(APP_TOR)
 		start_tor();
 #endif
+#if defined(APP_ADGUARD) // <-- THÊM ĐOẠN NÀY
+		start_adguard();
+#endif
 		if (!is_upnp_run())
 			start_upnp();
 		
@@ -792,6 +795,9 @@ stop_services(int stopall)
 #endif
 #if defined(APP_ZAPRET)
 	stop_zapret();
+#endif
+#if defined(APP_ADGUARD) // <-- THÊM ĐOẠN NÀY
+	stop_adguard();
 #endif
 	stop_networkmap();
 	stop_lltd();
