@@ -168,7 +168,6 @@ endif
 ifneq ($(CONFIG_FIRMWARE_INCLUDE_AGH),y)
 	rm -f $(INSTALLDIR)/www/Advanced_AdGuardHome_Content.asp
 endif
-
 ifneq ($(CONFIG_FIRMWARE_SQM_UI),y)
 	rm -f $(INSTALLDIR)/www/Advanced_SQM_Content.asp
 endif
